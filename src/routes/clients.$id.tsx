@@ -320,6 +320,138 @@ function AdBox({ label, running, notes }: { label: string; running?: string; not
   );
 }
 
+function GoogleAdsBox({ ads }: { ads?: any }) {
+  if (!ads) return null;
+  const tone =
+    ads.running === "yes" ? "border-primary/50 bg-primary/5" :
+    ads.running === "likely" ? "border-accent/50 bg-accent/5" :
+    "border-border bg-background/30";
+  return (
+    <div className={`rounded-lg p-3 border ${tone}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Google Ads</div>
+        <div className="flex items-center gap-2">
+          {ads.ads_seen_count && ads.ads_seen_count !== "unknown" && (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary">{ads.ads_seen_count} ads</span>
+          )}
+          <span className="text-[10px] font-mono uppercase">{ads.running || "unknown"}</span>
+        </div>
+      </div>
+      {ads.formats?.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-1.5">
+          {ads.formats.map((f: string, i: number) => (
+            <span key={i} className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-muted">{f}</span>
+          ))}
+        </div>
+      )}
+      {ads.regions?.length > 0 && (
+        <div className="text-[10px] font-mono text-muted-foreground mb-1.5">
+          Regions: {ads.regions.join(", ")}
+        </div>
+      )}
+      {ads.themes?.length > 0 && (
+        <div className="text-xs text-muted-foreground mb-1.5">
+          <span className="font-mono uppercase text-[10px] tracking-wider text-foreground">Themes: </span>
+          {ads.themes.join(" · ")}
+        </div>
+      )}
+      {ads.example_headlines?.length > 0 && (
+        <div className="mt-2 space-y-0.5">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-foreground">Headlines seen</div>
+          {ads.example_headlines.slice(0, 6).map((h: string, i: number) => (
+            <div key={i} className="text-xs text-muted-foreground italic">"{h}"</div>
+          ))}
+        </div>
+      )}
+      {ads.notes && <div className="text-xs text-muted-foreground leading-relaxed mt-2">{ads.notes}</div>}
+      {ads.transparency_url && (
+        <a href={ads.transparency_url} target="_blank" rel="noreferrer"
+           className="inline-block mt-2 text-[10px] font-mono text-primary hover:underline">
+          Transparency Center ↗
+        </a>
+      )}
+    </div>
+  );
+}
+
+function MetaAdsBox({ ads }: { ads?: any }) {
+  if (!ads) return null;
+  const tone =
+    ads.running === "yes" ? "border-primary/50 bg-primary/5" :
+    ads.running === "likely" ? "border-accent/50 bg-accent/5" :
+    "border-border bg-background/30";
+  return (
+    <div className={`rounded-lg p-3 border ${tone}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Meta Ads</div>
+        <div className="flex items-center gap-2">
+          {ads.active_ads_count && ads.active_ads_count !== "unknown" && (
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary">{ads.active_ads_count} active</span>
+          )}
+          <span className="text-[10px] font-mono uppercase">{ads.running || "unknown"}</span>
+        </div>
+      </div>
+      {ads.themes?.length > 0 && (
+        <div className="text-xs text-muted-foreground mb-1.5">
+          <span className="font-mono uppercase text-[10px] tracking-wider text-foreground">Themes: </span>
+          {ads.themes.join(" · ")}
+        </div>
+      )}
+      {ads.notes && <div className="text-xs text-muted-foreground leading-relaxed">{ads.notes}</div>}
+      {ads.ad_library_url && (
+        <a href={ads.ad_library_url} target="_blank" rel="noreferrer"
+           className="inline-block mt-2 text-[10px] font-mono text-primary hover:underline">
+          Meta Ad Library ↗
+        </a>
+      )}
+    </div>
+  );
+}
+
+function InstagramBox({ social }: { social?: any }) {
+  if (!social) return null;
+  const posts = social.instagram_posts_this_month;
+  const followers = social.instagram_followers;
+  const handle = social.instagram_handle;
+  if (!posts && !followers && !handle) return null;
+  return (
+    <div className="rounded-lg border border-border bg-background/30 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Instagram</div>
+        {handle && (
+          social.instagram_url ? (
+            <a href={social.instagram_url} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-primary hover:underline">
+              {handle.startsWith("@") ? handle : `@${handle}`} ↗
+            </a>
+          ) : (
+            <span className="text-[10px] font-mono text-muted-foreground">{handle}</span>
+          )
+        )}
+      </div>
+      <div className="flex gap-3 mb-2">
+        {posts && (
+          <div>
+            <div className="font-display text-2xl leading-none text-primary">{posts}</div>
+            <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mt-1">posts this month</div>
+          </div>
+        )}
+        {followers && (
+          <div>
+            <div className="font-display text-2xl leading-none">{followers}</div>
+            <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mt-1">followers</div>
+          </div>
+        )}
+      </div>
+      {social.instagram_post_themes?.length > 0 && (
+        <div className="text-xs text-muted-foreground">
+          <span className="font-mono uppercase text-[10px] tracking-wider text-foreground">Content: </span>
+          {social.instagram_post_themes.join(" · ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SocialLine({ label, text }: { label: string; text: string }) {
   return (
     <div className="flex gap-2">
