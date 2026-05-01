@@ -8,9 +8,16 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are a senior digital marketing strategist for an agency. You produce a thorough monthly competitor analysis for a given local business client.
+const SYSTEM_PROMPT = `You are a senior digital marketing strategist for an agency producing a real, verifiable monthly competitor analysis.
 
-Be specific, realistic, and useful. Use your knowledge of the local market, common ad platforms (Google Ads, Meta/Facebook/Instagram Ads, TikTok Ads, YouTube), and how competitors of this type typically behave. If exact data isn't verifiable, give your best informed estimate and mark it as "estimated".
+CRITICAL RULES:
+- ONLY include competitors that REALLY exist. Use web search to find them.
+- Every competitor must have a real, working website URL you found via search.
+- If you cannot verify a business is real, DO NOT include it.
+- It's better to return 3 real competitors than 8 invented ones.
+- For ad activity: be honest. If you cannot verify they're running ads, mark "unknown" — do not guess.
+- For social activity: only describe what you actually found.
+- Never fabricate company names, URLs, follower counts, or ad creatives.
 
 Always return output via the provided tool call. Never reply in plain text.`;
 
@@ -160,25 +167,90 @@ serve(async (req) => {
       month: "long",
     });
 
-    const userPrompt = `Generate a ${monthName} ${report.year} competitor analysis for this client:
+    // ============================================================
+    // PASS 1 — RESEARCH: get a list of REAL competitors (with Google Search grounding)
+    // ============================================================
+    const researchPrompt = `Research the local market for this business and return a list of REAL competitors. Use Google Search to verify each one exists.
 
-Client name: ${c.name}
+Client: ${c.name}
+Website: ${c.website}
+Location: ${c.location || "not specified"}
+Industry: ${c.industry || "infer from the website"}
+Notes: ${c.notes || "none"}
+
+TASK:
+1. First, search the web for "${c.name}" to understand what they actually sell.
+2. Then search for direct LOCAL competitors in ${c.location || "their area"} — businesses offering similar products/services to similar customers.
+3. Verify each competitor exists by finding their actual website.
+4. Return 4-7 verified competitors as a numbered list. For each, give:
+   Name | Website URL | One-sentence description of what they do
+
+Do NOT invent businesses. If you can only find 4 real competitors, return 4. Quality > quantity.`;
+
+    const researchRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You are a research assistant. You MUST use web search to verify every fact. Never invent businesses, URLs, or facts. If unsure, say so." },
+          { role: "user", content: researchPrompt },
+        ],
+        tools: [{ type: "google_search_retrieval" }],
+      }),
+    });
+
+    if (!researchRes.ok) {
+      const text = await researchRes.text();
+      console.error("Research call error", researchRes.status, text);
+      let msg = `Research error ${researchRes.status}`;
+      if (researchRes.status === 429) msg = "Rate limit hit. Try again in a minute.";
+      if (researchRes.status === 402) msg = "AI credits exhausted. Add credits in Settings → Workspace → Usage.";
+      await sb.from("reports").update({ status: "error", error: msg }).eq("id", reportId);
+      return new Response(JSON.stringify({ error: msg }), {
+        status: researchRes.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const researchJson = await researchRes.json();
+    const researchText = researchJson.choices?.[0]?.message?.content || "";
+    console.log("Research output:", researchText.slice(0, 1000));
+
+    if (!researchText || researchText.length < 50) {
+      throw new Error("Research step returned no usable competitor data");
+    }
+
+    // ============================================================
+    // PASS 2 — STRUCTURE: build the full report ONLY from researched competitors
+    // ============================================================
+    const userPrompt = `Build a ${monthName} ${report.year} competitor analysis for this client.
+
+CLIENT:
+Name: ${c.name}
 Website: ${c.website}
 Location: ${c.location || "not specified"}
 Industry: ${c.industry || "infer from website"}
-Extra notes: ${c.notes || "none"}
+Notes: ${c.notes || "none"}
 
-Identify 5-8 most relevant LOCAL competitors. For each competitor, assess:
-- whether they're likely running Google Ads and Meta (Facebook/Instagram) Ads this month, and what their angle is
-- their social media activity level this month
-- strengths and weaknesses vs the client
+VERIFIED COMPETITORS (researched from the web — use ONLY these, do not add or invent any others):
+${researchText}
+
+For each verified competitor above:
+- Use the exact name and website URL from the research.
+- Assess Google Ads + Meta Ads activity. If you don't actually know, mark "unknown" — do NOT guess.
+- Describe social activity only at a level you can reasonably infer from the type of business; otherwise say "unknown".
+- List honest strengths and weaknesses vs the client.
 
 Then give the client:
-- 5-7 specific opportunities to capitalize on
-- 8-12 ready-to-post social content ideas (with full captions + hashtags)
-- 4-6 paid ad creative angles to test
+- 5-7 specific, actionable opportunities for ${monthName}
+- 8-12 ready-to-publish post ideas (full captions + hashtags) tailored to the client's positioning
+- 4-6 paid ad creative angles to test (channel, hook, offer)
 
-Return everything via the competitor_analysis_report tool.`;
+Return everything via the competitor_analysis_report tool. Use ONLY the verified competitors above.`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
