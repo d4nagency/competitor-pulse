@@ -37,7 +37,7 @@ const TOOL = {
               google_ads: {
                 type: "object",
                 properties: {
-                  running: { type: "string", enum: ["yes", "likely", "no", "unknown"] },
+                  running: { type: "string", enum: ["yes", "no", "unknown"], description: "yes ONLY if active ads confirmed in Meta Ad Library. no if confirmed not running. unknown otherwise. NEVER 'likely'." },
                   ads_seen_count: { type: "string", description: "Number of ads visible in Google Ads Transparency Center, or 'unknown'." },
                   formats: { type: "array", items: { type: "string", enum: ["text", "image", "video", "shopping", "demand_gen", "unknown"] } },
                   regions: { type: "array", items: { type: "string" }, description: "Regions targeted, e.g. United States, California." },
