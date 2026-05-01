@@ -29,14 +29,13 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Recon — Monthly Competitor Intel for Agencies" },
+      { name: "description", content: "Run AI-powered monthly competitor analysis for your agency clients — ads, social activity, opportunities and ready-to-publish post ideas." },
+      { name: "author", content: "Recon" },
+      { property: "og:title", content: "Recon — Monthly Competitor Intel" },
+      { property: "og:description", content: "AI-powered monthly competitor reports for agency clients." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
