@@ -11,15 +11,10 @@ const corsHeaders = {
 const SYSTEM_PROMPT = `You are a senior digital marketing strategist for an agency producing a real, verifiable monthly competitor analysis.
 
 CRITICAL RULES:
-- ONLY include competitors that REALLY exist. Use web search to find them.
-- Every competitor must have a real, working website URL you found via search.
-- If you cannot verify a business is real, DO NOT include it.
-- It's better to return 3 real competitors than 8 invented ones.
-- For ad activity: be honest. If you cannot verify they're running ads, mark "unknown" — do not guess.
-- For social activity: only describe what you actually found.
-- Never fabricate company names, URLs, follower counts, or ad creatives.
-
-Always return output via the provided tool call. Never reply in plain text.`;
+- ONLY include competitors that REALLY exist (provided in the verified list).
+- Never fabricate company names, URLs, follower counts, ad creatives, or post counts.
+- For ad activity / post counts: if it cannot be verified from the research provided, mark "unknown" — do not guess.
+- Return output via the provided tool call. Never reply in plain text.`;
 
 const TOOL = {
   type: "function",
@@ -29,28 +24,27 @@ const TOOL = {
     parameters: {
       type: "object",
       properties: {
-        client_summary: {
-          type: "string",
-          description: "1-2 sentence overview of the client's positioning and likely target audience.",
-        },
-        market_overview: {
-          type: "string",
-          description: "Short paragraph on the local competitive landscape this month.",
-        },
+        client_summary: { type: "string" },
+        market_overview: { type: "string" },
         competitors: {
           type: "array",
-          description: "5-8 most relevant local competitors.",
           items: {
             type: "object",
             properties: {
               name: { type: "string" },
               website: { type: "string" },
-              positioning: { type: "string", description: "How they position themselves vs the client." },
+              positioning: { type: "string" },
               google_ads: {
                 type: "object",
                 properties: {
                   running: { type: "string", enum: ["yes", "likely", "no", "unknown"] },
-                  notes: { type: "string", description: "Estimated ad themes, keywords, landing pages." },
+                  ads_seen_count: { type: "string", description: "Number of ads visible in Google Ads Transparency Center, or 'unknown'." },
+                  formats: { type: "array", items: { type: "string", enum: ["text", "image", "video", "shopping", "demand_gen", "unknown"] } },
+                  regions: { type: "array", items: { type: "string" }, description: "Regions targeted, e.g. United States, California." },
+                  themes: { type: "array", items: { type: "string" }, description: "Recurring messaging / offer themes seen in their ads." },
+                  example_headlines: { type: "array", items: { type: "string" }, description: "Verbatim ad headlines or copy snippets observed." },
+                  transparency_url: { type: "string", description: "Direct link to their Google Ads Transparency Center page." },
+                  notes: { type: "string" },
                 },
                 required: ["running", "notes"],
               },
@@ -58,63 +52,50 @@ const TOOL = {
                 type: "object",
                 properties: {
                   running: { type: "string", enum: ["yes", "likely", "no", "unknown"] },
-                  notes: { type: "string", description: "Likely creative angles, offers, audience targeting." },
+                  active_ads_count: { type: "string", description: "Number of active ads in Meta Ad Library, or 'unknown'." },
+                  themes: { type: "array", items: { type: "string" } },
+                  ad_library_url: { type: "string" },
+                  notes: { type: "string" },
                 },
                 required: ["running", "notes"],
               },
-              other_ads: {
-                type: "string",
-                description: "TikTok, YouTube, OOH, influencer, etc. activity if relevant.",
-              },
+              other_ads: { type: "string" },
               social_activity: {
                 type: "object",
                 properties: {
-                  instagram: { type: "string", description: "Posting frequency this month + content themes." },
+                  instagram_handle: { type: "string" },
+                  instagram_url: { type: "string" },
+                  instagram_followers: { type: "string", description: "Followers as a string e.g. '12.4K', or 'unknown'." },
+                  instagram_posts_this_month: { type: "string", description: "Number of feed posts + reels published this month, or 'unknown'. Be honest." },
+                  instagram_post_themes: { type: "array", items: { type: "string" }, description: "Themes / formats observed in this month's posts." },
                   tiktok: { type: "string" },
                   facebook: { type: "string" },
-                  activity_score: {
-                    type: "string",
-                    enum: ["very_active", "active", "moderate", "low", "inactive"],
-                  },
+                  activity_score: { type: "string", enum: ["very_active", "active", "moderate", "low", "inactive", "unknown"] },
                 },
                 required: ["activity_score"],
               },
               strengths: { type: "array", items: { type: "string" } },
               weaknesses: { type: "array", items: { type: "string" } },
             },
-            required: [
-              "name",
-              "positioning",
-              "google_ads",
-              "meta_ads",
-              "social_activity",
-              "strengths",
-              "weaknesses",
-            ],
+            required: ["name", "positioning", "google_ads", "meta_ads", "social_activity", "strengths", "weaknesses"],
           },
         },
-        client_opportunities: {
-          type: "array",
-          description: "5-7 specific opportunities the client should act on this month.",
-          items: { type: "string" },
-        },
+        client_opportunities: { type: "array", items: { type: "string" } },
         post_ideas: {
           type: "array",
-          description: "8-12 ready-to-use social post ideas tailored for the client.",
           items: {
             type: "object",
             properties: {
               platform: { type: "string", enum: ["Instagram", "TikTok", "Facebook", "Reels", "Story"] },
-              hook: { type: "string", description: "Scroll-stopping opening line / visual." },
-              concept: { type: "string", description: "What the post is about and why it works." },
-              caption: { type: "string", description: "Ready-to-post caption with hashtags." },
+              hook: { type: "string" },
+              concept: { type: "string" },
+              caption: { type: "string" },
             },
             required: ["platform", "hook", "concept", "caption"],
           },
         },
         ad_angles: {
           type: "array",
-          description: "4-6 paid ad creative angles the client should test.",
           items: {
             type: "object",
             properties: {
@@ -127,137 +108,174 @@ const TOOL = {
           },
         },
       },
-      required: [
-        "client_summary",
-        "market_overview",
-        "competitors",
-        "client_opportunities",
-        "post_ideas",
-        "ad_angles",
-      ],
+      required: ["client_summary", "market_overview", "competitors", "client_opportunities", "post_ideas", "ad_angles"],
     },
   },
 };
 
+async function callGemini(LOVABLE_API_KEY: string, model: string, messages: any[], grounded = false) {
+  const body: any = { model, messages };
+  if (grounded) body.tools = [{ type: "google_search_retrieval" }];
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    const err: any = new Error(`AI ${res.status}: ${text.slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
+  }
+  const json = await res.json();
+  return json.choices?.[0]?.message?.content || "";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let reportIdOuter: string | undefined;
   try {
     const { reportId } = await req.json();
+    reportIdOuter = reportId;
     if (!reportId) throw new Error("reportId required");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!LOVABLE_API_KEY || !SUPABASE_URL || !SERVICE_KEY) {
-      throw new Error("Missing env");
-    }
+    if (!LOVABLE_API_KEY || !SUPABASE_URL || !SERVICE_KEY) throw new Error("Missing env");
 
     const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
     const { data: report, error: rErr } = await sb
-      .from("reports")
-      .select("*, clients(*)")
-      .eq("id", reportId)
-      .single();
+      .from("reports").select("*, clients(*)").eq("id", reportId).single();
     if (rErr || !report) throw new Error("Report not found");
 
     const c = report.clients;
-    const monthName = new Date(report.year, report.month - 1, 1).toLocaleString("en-US", {
-      month: "long",
-    });
+    const monthName = new Date(report.year, report.month - 1, 1).toLocaleString("en-US", { month: "long" });
 
     // ============================================================
-    // PASS 1 — RESEARCH: get a list of REAL competitors (with Google Search grounding)
+    // PASS 1 — find real competitors
     // ============================================================
-    const researchPrompt = `Research the local market for this business and return a list of REAL competitors. Use Google Search to verify each one exists.
+    const researchPrompt = `Find REAL local competitors for this business. Use Google Search to verify each.
 
 Client: ${c.name}
 Website: ${c.website}
-Location: ${c.location || "not specified"}
+Location: ${c.location || "unspecified"}
 Industry: ${c.industry || "infer from the website"}
 Notes: ${c.notes || "none"}
 
-TASK:
-1. First, search the web for "${c.name}" to understand what they actually sell.
-2. Then search for direct LOCAL competitors in ${c.location || "their area"} — businesses offering similar products/services to similar customers.
-3. Verify each competitor exists by finding their actual website.
-4. Return 4-7 verified competitors as a numbered list. For each, give:
-   Name | Website URL | One-sentence description of what they do
+Steps:
+1. Search "${c.name}" to understand what they sell.
+2. Search direct LOCAL competitors in ${c.location || "their area"}.
+3. Verify each by finding their actual website.
+4. Return 4-6 verified competitors as a numbered list:
+   Name | Website URL | One-sentence description
 
-Do NOT invent businesses. If you can only find 4 real competitors, return 4. Quality > quantity.`;
+Quality > quantity. No invented businesses.`;
 
-    const researchRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "You are a research assistant. You MUST use web search to verify every fact. Never invent businesses, URLs, or facts. If unsure, say so." },
-          { role: "user", content: researchPrompt },
-        ],
-        tools: [{ type: "google_search_retrieval" }],
-      }),
-    });
+    const researchText = await callGemini(LOVABLE_API_KEY, "google/gemini-2.5-flash", [
+      { role: "system", content: "You are a research assistant. Use web search to verify every fact. Never invent businesses or URLs." },
+      { role: "user", content: researchPrompt },
+    ], true);
+    console.log("Pass 1 competitors:\n", researchText.slice(0, 1500));
 
-    if (!researchRes.ok) {
-      const text = await researchRes.text();
-      console.error("Research call error", researchRes.status, text);
-      let msg = `Research error ${researchRes.status}`;
-      if (researchRes.status === 429) msg = "Rate limit hit. Try again in a minute.";
-      if (researchRes.status === 402) msg = "AI credits exhausted. Add credits in Settings → Workspace → Usage.";
-      await sb.from("reports").update({ status: "error", error: msg }).eq("id", reportId);
-      return new Response(JSON.stringify({ error: msg }), {
-        status: researchRes.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!researchText || researchText.length < 50) throw new Error("Research step returned no usable competitor data");
 
-    const researchJson = await researchRes.json();
-    const researchText = researchJson.choices?.[0]?.message?.content || "";
-    console.log("Research output:", researchText.slice(0, 1000));
-
-    if (!researchText || researchText.length < 50) {
-      throw new Error("Research step returned no usable competitor data");
-    }
+    // Parse competitor list (rough extraction of name + url)
+    const competitorLines = researchText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => /https?:\/\//i.test(l) || /\|/.test(l))
+      .slice(0, 6);
 
     // ============================================================
-    // PASS 2 — STRUCTURE: build the full report ONLY from researched competitors
+    // PASS 2 — DEEP DIVE per competitor (Google Ads Transparency + IG post count)
     // ============================================================
-    const userPrompt = `Build a ${monthName} ${report.year} competitor analysis for this client.
+    const deepDives: string[] = [];
+    for (const line of competitorLines) {
+      const divePrompt = `Deep-dive research on this competitor. Use Google Search aggressively. Be honest — if you can't verify, say "unknown".
+
+Competitor: ${line}
+Client context: ${c.name} (${c.website}) in ${c.location || "unspecified"}.
+
+Find and report ALL of the following. Cite the source URL inline for each fact:
+
+A) GOOGLE ADS TRANSPARENCY CENTER
+- Search: site:adstransparency.google.com "<competitor name>" OR query their Transparency Center directly.
+- Provide the exact Transparency Center URL for this advertiser if found.
+- How many ads are currently visible? Approximate count is fine.
+- What ad formats? (text, image, video, shopping, demand gen)
+- What regions are they targeting?
+- List 3-6 verbatim ad headlines or copy snippets you can see.
+- Recurring offers / themes / hooks.
+
+B) META AD LIBRARY
+- Search Meta Ad Library for the competitor.
+- Provide the Ad Library URL.
+- How many ACTIVE ads right now?
+- Themes / offers observed.
+
+C) INSTAGRAM ACTIVITY THIS MONTH (${monthName} ${report.year})
+- Find their Instagram handle and URL.
+- Approximate follower count.
+- HOW MANY POSTS (feed + reels) did they publish in ${monthName} ${report.year}? Give a number or range. If you can only see "recent" posts not dated, estimate from posting cadence and say so.
+- List the themes/formats of those posts (e.g. "3 reels of staff, 2 carousels of promotions").
+
+D) TIKTOK & FACEBOOK presence in 1 line each.
+
+Format clearly with section headers A/B/C/D. Cite URLs.`;
+
+      try {
+        const out = await callGemini(LOVABLE_API_KEY, "google/gemini-2.5-flash", [
+          { role: "system", content: "You are a research analyst. Use web search. Cite URLs. Mark anything unverified as 'unknown'." },
+          { role: "user", content: divePrompt },
+        ], true);
+        deepDives.push(`### ${line}\n${out}`);
+        console.log(`Deep dive for ${line.slice(0, 60)}: ${out.length} chars`);
+      } catch (e) {
+        console.error("Deep dive failed for", line, e);
+        deepDives.push(`### ${line}\n(deep dive failed: ${(e as Error).message})`);
+      }
+    }
+
+    const deepResearch = deepDives.join("\n\n---\n\n");
+
+    // ============================================================
+    // PASS 3 — STRUCTURE the final report
+    // ============================================================
+    const userPrompt = `Build a ${monthName} ${report.year} competitor analysis for this client using ONLY the verified research below.
 
 CLIENT:
 Name: ${c.name}
 Website: ${c.website}
-Location: ${c.location || "not specified"}
-Industry: ${c.industry || "infer from website"}
+Location: ${c.location || "unspecified"}
+Industry: ${c.industry || "infer"}
 Notes: ${c.notes || "none"}
 
-VERIFIED COMPETITORS (researched from the web — use ONLY these, do not add or invent any others):
+VERIFIED COMPETITOR LIST:
 ${researchText}
 
-For each verified competitor above:
-- Use the exact name and website URL from the research.
-- Assess Google Ads + Meta Ads activity. If you don't actually know, mark "unknown" — do NOT guess.
-- Describe social activity only at a level you can reasonably infer from the type of business; otherwise say "unknown".
-- List honest strengths and weaknesses vs the client.
+DEEP DIVE RESEARCH (Google Ads Transparency + Meta Ad Library + Instagram post counts):
+${deepResearch}
+
+Rules:
+- Use the EXACT names/URLs from the verified list. Do NOT add competitors not in the list.
+- For each competitor, populate google_ads (running, ads_seen_count, formats, regions, themes, example_headlines, transparency_url) from the deep dive. If the dive says unknown, set "unknown".
+- Populate meta_ads (running, active_ads_count, themes, ad_library_url) the same way.
+- Populate social_activity.instagram_handle, instagram_url, instagram_followers, instagram_posts_this_month, instagram_post_themes from the deep dive.
+- Be honest. "unknown" is acceptable and preferred over guessing.
 
 Then give the client:
-- 5-7 specific, actionable opportunities for ${monthName}
-- 8-12 ready-to-publish post ideas (full captions + hashtags) tailored to the client's positioning
-- 4-6 paid ad creative angles to test (channel, hook, offer)
+- 5-7 actionable opportunities for ${monthName}
+- 8-12 ready-to-publish post ideas (full caption + hashtags)
+- 4-6 paid ad creative angles (channel, hook, offer)
 
-Return everything via the competitor_analysis_report tool. Use ONLY the verified competitors above.`;
+Return via the competitor_analysis_report tool.`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
         messages: [
@@ -273,46 +291,29 @@ Return everything via the competitor_analysis_report tool. Use ONLY the verified
       const text = await aiRes.text();
       console.error("AI gateway error", aiRes.status, text);
       let msg = `AI error ${aiRes.status}`;
-      if (aiRes.status === 429) msg = "Rate limit hit. Please try again in a minute.";
+      if (aiRes.status === 429) msg = "Rate limit hit. Try again in a minute.";
       if (aiRes.status === 402) msg = "AI credits exhausted. Add credits in Settings → Workspace → Usage.";
       await sb.from("reports").update({ status: "error", error: msg }).eq("id", reportId);
-      return new Response(JSON.stringify({ error: msg }), {
-        status: aiRes.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: msg }), { status: aiRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const json = await aiRes.json();
     const toolCall = json.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
-      throw new Error("AI did not return structured output");
-    }
+    if (!toolCall?.function?.arguments) throw new Error("AI did not return structured output");
     const parsed = JSON.parse(toolCall.function.arguments);
 
-    await sb
-      .from("reports")
-      .update({ status: "complete", data: parsed, error: null })
-      .eq("id", reportId);
+    await sb.from("reports").update({ status: "complete", data: parsed, error: null }).eq("id", reportId);
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("analyze-competitors error", e);
     const msg = e instanceof Error ? e.message : "Unknown error";
     try {
-      const { reportId } = await req.clone().json().catch(() => ({}));
-      if (reportId) {
-        const sb = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-        );
-        await sb.from("reports").update({ status: "error", error: msg }).eq("id", reportId);
+      if (reportIdOuter) {
+        const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        await sb.from("reports").update({ status: "error", error: msg }).eq("id", reportIdOuter);
       }
     } catch {}
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
