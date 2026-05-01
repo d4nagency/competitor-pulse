@@ -220,9 +220,9 @@ function ReportView({ data }: { data: any }) {
               {c.website && <div className="text-xs font-mono text-muted-foreground mb-3">{c.website}</div>}
               <p className="text-sm text-muted-foreground mb-4">{c.positioning}</p>
 
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <AdBox label="Google Ads" running={c.google_ads?.running} notes={c.google_ads?.notes} />
-                <AdBox label="Meta Ads" running={c.meta_ads?.running} notes={c.meta_ads?.notes} />
+              <div className="space-y-3 mb-4">
+                <GoogleAdsBox ads={c.google_ads} />
+                <MetaAdsBox ads={c.meta_ads} />
               </div>
 
               {c.other_ads && (
@@ -231,8 +231,9 @@ function ReportView({ data }: { data: any }) {
                 </div>
               )}
 
-              <div className="space-y-1.5 text-xs">
-                {c.social_activity?.instagram && <SocialLine label="IG" text={c.social_activity.instagram} />}
+              <InstagramBox social={c.social_activity} />
+
+              <div className="space-y-1.5 text-xs mt-2">
                 {c.social_activity?.tiktok && <SocialLine label="TT" text={c.social_activity.tiktok} />}
                 {c.social_activity?.facebook && <SocialLine label="FB" text={c.social_activity.facebook} />}
               </div>
