@@ -51,7 +51,7 @@ const TOOL = {
               meta_ads: {
                 type: "object",
                 properties: {
-                  running: { type: "string", enum: ["yes", "likely", "no", "unknown"] },
+                  running: { type: "string", enum: ["yes", "no", "unknown"], description: "yes ONLY if ads are confirmed via Transparency Center. no if confirmed not running. unknown otherwise. NEVER 'likely'." },
                   active_ads_count: { type: "string", description: "Number of active ads in Meta Ad Library, or 'unknown'." },
                   themes: { type: "array", items: { type: "string" } },
                   ad_library_url: { type: "string" },
