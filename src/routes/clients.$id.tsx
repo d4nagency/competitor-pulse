@@ -307,7 +307,6 @@ function Section({ title, kicker, children }: { title: string; kicker?: string; 
 function AdBox({ label, running, notes }: { label: string; running?: string; notes?: string }) {
   const tone =
     running === "yes" ? "border-primary/50 bg-primary/5" :
-    running === "likely" ? "border-accent/50 bg-accent/5" :
     "border-border bg-background/30";
   return (
     <div className={`rounded-lg p-3 border ${tone}`}>
@@ -324,7 +323,6 @@ function GoogleAdsBox({ ads }: { ads?: any }) {
   if (!ads) return null;
   const tone =
     ads.running === "yes" ? "border-primary/50 bg-primary/5" :
-    ads.running === "likely" ? "border-accent/50 bg-accent/5" :
     "border-border bg-background/30";
   return (
     <div className={`rounded-lg p-3 border ${tone}`}>
@@ -378,7 +376,6 @@ function MetaAdsBox({ ads }: { ads?: any }) {
   if (!ads) return null;
   const tone =
     ads.running === "yes" ? "border-primary/50 bg-primary/5" :
-    ads.running === "likely" ? "border-accent/50 bg-accent/5" :
     "border-border bg-background/30";
   return (
     <div className={`rounded-lg p-3 border ${tone}`}>

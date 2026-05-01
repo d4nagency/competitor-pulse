@@ -13,6 +13,7 @@ const SYSTEM_PROMPT = `You are a senior digital marketing strategist for an agen
 CRITICAL RULES:
 - ONLY include competitors that REALLY exist (provided in the verified list).
 - Never fabricate company names, URLs, follower counts, ad creatives, or post counts.
+- Ad "running" status MUST be exactly "yes", "no", or "unknown". NEVER "likely" or "maybe". If unverified in Transparency Center / Ad Library, use "unknown".
 - For ad activity / post counts: if it cannot be verified from the research provided, mark "unknown" — do not guess.
 - Return output via the provided tool call. Never reply in plain text.`;
 
@@ -37,7 +38,7 @@ const TOOL = {
               google_ads: {
                 type: "object",
                 properties: {
-                  running: { type: "string", enum: ["yes", "likely", "no", "unknown"] },
+                  running: { type: "string", enum: ["yes", "no", "unknown"], description: "yes ONLY if active ads confirmed in Meta Ad Library. no if confirmed not running. unknown otherwise. NEVER 'likely'." },
                   ads_seen_count: { type: "string", description: "Number of ads visible in Google Ads Transparency Center, or 'unknown'." },
                   formats: { type: "array", items: { type: "string", enum: ["text", "image", "video", "shopping", "demand_gen", "unknown"] } },
                   regions: { type: "array", items: { type: "string" }, description: "Regions targeted, e.g. United States, California." },
@@ -51,7 +52,7 @@ const TOOL = {
               meta_ads: {
                 type: "object",
                 properties: {
-                  running: { type: "string", enum: ["yes", "likely", "no", "unknown"] },
+                  running: { type: "string", enum: ["yes", "no", "unknown"], description: "yes ONLY if ads are confirmed via Transparency Center. no if confirmed not running. unknown otherwise. NEVER 'likely'." },
                   active_ads_count: { type: "string", description: "Number of active ads in Meta Ad Library, or 'unknown'." },
                   themes: { type: "array", items: { type: "string" } },
                   ad_library_url: { type: "string" },
